@@ -198,7 +198,7 @@ class RNNLM(object):
         self.cell_ = MakeFancyRNNCell(self.H, self.dropout_keep_prob_, self.num_layers)
         self.initial_h_  = self.cell_.zero_state(self.batch_size_, tf.float32)
         #self.final_h_ = tf.nn.dynamic_rnn(self.cell_, tf.expand_dims(x_,-1), initial_state=self.initial_h_)
-        self.output, self.final_h_ = tf.nn.dynamic_rnn(self.cell_, self.x_, initial_state=self.initial_h_)
+        self.output, self.final_h_ = tf.nn.dynamic_rnn(self.cell_, self.x_, initial_state=self.initial_h_, sequence_length=self.ns_)
         #self.final_h_ = tf.reshape(self.final_h_, [-1, self.H])
         #print ("SANTA2", self.output.get_shape(), self.final_h_.c.get_shape())
 
@@ -257,11 +257,13 @@ class RNNLM(object):
         print ("HAHA W_OUT", tf.rank(self.W_out_), self.W_out_.get_shape())
         print ("HAHA B_OUT", tf.rank(self.b_out_), self.b_out_.get_shape())
         print ("HAHA TARG Y", tf.rank(self.target_y_), self.target_y_.get_shape())
-#        print ("HAHA O", tf.rank(self.x_), self.x_.get_shape())
-#        print ("HAHA X__", tf.rank(self.x__), self.x__.get_shape())
+        print ("HAHA x_", tf.rank(self.x_), self.x_.get_shape())
+        print ("HAHA x__", tf.rank(self.x__), self.x__.get_shape())
         self.o = tf.reshape(self.output, [-1, self.H])
 	print ("HAHA O", self.o.get_shape())
 	self.t_y_ = tf.reshape(self.target_y_, [-1,1])
+	#self.t_y_ = tf.reshape(self.target_y_, [self.batch_size_, self.max_time_])
+        print ("MERCYGOO", self.target_y_.get_shape())
 	print ("MERCYGO", self.t_y_.get_shape())
 	print ("HOHO", self.logits_.get_shape())
 	self.l_ = tf.reshape(self.logits_, [-1, self.H])
@@ -276,7 +278,13 @@ class RNNLM(object):
 
         # Define optimizer and training op
 
-        self.train_step_ = tf.train.AdagradOptimizer(self.learning_rate_).minimize(self.train_loss_)
+	self.trainables = tf.trainable_variables()
+	self.gradients = tf.gradients(self.train_loss_, self.trainables)
+	self.clipped_gradients, _ = tf.clip_by_global_norm(self.gradients, self.max_grad_norm_)
+	self.opt_ = tf.train.AdagradOptimizer(self.learning_rate_)
+	self.train_step_ = self.opt_.apply_gradients(zip(self.clipped_gradients, self.trainables))
+
+        #self.train_step_ = tf.train.AdagradOptimizer(self.learning_rate_).minimize(self.train_loss_)
 
         #### END(YOUR CODE) ####
 
